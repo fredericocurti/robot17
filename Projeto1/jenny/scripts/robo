@@ -79,24 +79,26 @@ def recebe2(msg):
 		# z = '{0:.315f}'.format(x)
 		# print(z[311:325])
 		# print('y',y * 1e308 *100)
-		if marker.id == 8 and not survivor_status:
+
+		if marker.id == 8:
 			if z < 10:
 				print('andando pra tras')
 				pub.publish(Twist(Vector3(-1,-1,0), Vector3(0,0,0)))
 
-		elif marker.id == 5 and not survivor_status:
+		elif marker.id == 5:
 			if x > 3.5 and z > 5:
 				print('andando pra frente!')
 				pub.publish(Twist(Vector3(0.5,0.5,0), Vector3(10,0,0)))
 			if x < 3.5 and z > 5:
 				pub.publish(Twist(Vector3(0.5,0.5,5), Vector3(0,10,20)))
-		elif survivor_status:
-			print('bateu')
-			pub.publish(Twist(Vector3(-1,-1,0), Vector3(0,0,0)))
+
 		else:
 			pub.publish(Twist(Vector3(0,0,0), Vector3(0,0,0)))
 
 		#print(marker.pose.pose)
+    if survivor_status:
+        print('bateu')
+        pub.publish(Twist(Vector3(0,0,0), Vector3(0,0,-1)))
 
 def recebedor_survivor(msg):
 	if msg.leftFront == 1 or msg.rightFront == 1 or msg.leftSide == 1 or msg.rightSide == 1:
