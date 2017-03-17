@@ -69,6 +69,11 @@ def recebe2(msg):
 	global id
 	if msg.markers == []:
 		print("Marker not found!")
+
+	if survivor_status:
+		print('bateu')
+		pub.publish(Twist(Vector3(0,0,0), Vector3(0,0,-1)))
+		
 	for marker in msg.markers:
 		x = round(marker.pose.pose.position.x * 1e308 *100,2)
 		y = round(marker.pose.pose.position.y * 1e308 *100,2)
@@ -96,9 +101,7 @@ def recebe2(msg):
 			pub.publish(Twist(Vector3(0,0,0), Vector3(0,0,0)))
 
 		#print(marker.pose.pose)
-    if survivor_status:
-        print('bateu')
-        pub.publish(Twist(Vector3(0,0,0), Vector3(0,0,-1)))
+
 
 def recebedor_survivor(msg):
 	if msg.leftFront == 1 or msg.rightFront == 1 or msg.leftSide == 1 or msg.rightSide == 1:
