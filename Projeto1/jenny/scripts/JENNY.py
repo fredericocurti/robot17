@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 __author__ = ["Rachel P. B. Moraes", "Fabio Miranda"]
 import rospy
+# import os
 import numpy
 from numpy import linalg
 import transformations
@@ -14,9 +15,11 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 from kobuki_msgs.msg import BumperEvent
+from neato_node.msg import Bump
 
+# os.system('roslaunch tag_tracking ar_track_neato.launch') # opens camera tracking
 id = 0
-frame = "head_camera"
+frame = "camera_frame" #mudar p/ head_camera ou camera_frame, para usb_cam ou robotcam respectivamente
 tfl = 0
 tf_buffer = tf2_ros.Buffer()
 empty_counter = 0 # counter for the consecutive empty markers subscription
@@ -25,24 +28,27 @@ lastcoords = [None]*3 # lastcoords[x,y,z] for action history
 ls = 0.2 # LINEAR SPEED
 issafe = True #Inital safery state
 counter = 0 # Counter for scout mode
-multiplier = 1.5 ### Poportional steering coefficient
-rs = 3 ## Retreat speed in danger
+multiplier = 0.5 ### Poportional steering coefficient
+rs = 4 ## Retreat speed in danger
 historysize = 2 ## amount of actions that get cached in case of a missed marker
+sp = 0.5 ## scout angular speed
 
 ## Actions ---------------------------------------------------------------------
 def move_forward(x):
-	if x > 0.2:
-		print 'Adjust trajectory to the left! abs dist:',round(math.fabs(0-multiplier*x),2)
-		# print('modulo dist', math.fabs(0-0.2*x))
-		return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0,0,math.fabs(0-multiplier*x))))
+		if x > 0.2:
+			print 'Adjust trajectory to the right! abs dist:',round(math.fabs(0-multiplier*x),2)
+			# print('modulo dist', math.fabs(0-0.2*x))
+			return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0,0,-math.fabs(0-multiplier*x))))
 
-	elif x < -0.1:
-		print 'Adjusting trajectory to the right! abs dist:',round(math.fabs(0-multiplier*x),2)
-		# print('modulo dist',math.fabs(0-0.2*x))
-		return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0,0,-math.fabs(0-multiplier*x))))
-	else:
-		print "Going straight!"
-		return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0.0,0,0.0)))
+		elif x < -0.1:
+			print 'Adjusting trajectory to the left! abs dist:',round(math.fabs(0-multiplier*x),2)
+			# print('modulo dist',math.fabs(0-0.2*x))
+			return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0,0,math.fabs(0-multiplier*x))))
+		else:
+			print "Going straight!"
+			return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0.0,0,0.0)))
+	# else:
+	# 	print "Too close to keep going forward!"
 
 def stop(x):
 	return vel.publish(Twist(Vector3(0,0,0), Vector3(0.0,0,0.0)))
@@ -57,12 +63,14 @@ def stopnsearch(x): ## SCOUT MODE
 	if counter <= 4: #side == "right" and
 		searchturn = "right"
 		print("Turning " + searchturn)
-		vel.publish(Twist(Vector3(0,0.0,0), Vector3(0,0,-1)))
+		vel.publish(Twist(Vector3(0,0.0,0), Vector3(0,0,-sp)))
+		rospy.sleep(1)
 		counter += 1
 	else:
-		vel.publish(Twist(Vector3(0.0,0,0), Vector3(0,0,1)))
+		vel.publish(Twist(Vector3(0.0,0,0), Vector3(0,0,sp)))
 		searchturn = "left"
 		print("Turning " + searchturn)
+		rospy.sleep(1)
 		counter += 1
 		if counter == 10:
 			counter = 0
@@ -85,7 +93,21 @@ def handlebumps(msg):
 		vel.publish(Twist(Vector3(-rs,-rs,0), Vector3(0,0,0)))
 		rospy.sleep(5)
 		issafe = True
+		empty_counter = 3
 		return stopnsearch(None)
+
+def handlebumps2(msg):
+	global issafe
+	if msg != None:
+		if msg.leftFront == 1 or msg.leftSide == 1 or msg.rightFront == 1 or msg.rightSide == 1 and issafe == True:
+			issafe = False
+			print("The robot hit something! Backing off and engaging scout mode!")
+			vel.publish(Twist(Vector3(-rs,-rs,0), Vector3(0,0,0)))
+			rospy.sleep(5)
+			issafe = True
+			empty_counter = 3
+			return stopnsearch(None)
+
 
 def handlemarkers(msg):
 	global empty_counter
@@ -178,14 +200,15 @@ def handlemarkers(msg):
 if __name__=="__main__":
 	rospy.init_node("jenny")
 	recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, handlemarkers)
-	bumper = rospy.Subscriber("/mobile_base/events/bumper", BumperEvent, handlebumps)
+	# bumper = rospy.Subscriber("/mobile_base/events/bumper", BumperEvent, handlebumps)
+	neatobumper = rospy.Subscriber("/bump",Bump,handlebumps2)
 	vel = rospy.Publisher("cmd_vel", Twist, queue_size=1)
 	tfl = tf2_ros.TransformListener(tf_buffer)
 
 	try:
 		while not rospy.is_shutdown():
 			a = None
-			rospy.sleep(0.5)
+			rospy.sleep(1)
 
 	except rospy.ROSInterruptException:
 		print ('programa encerrado')
