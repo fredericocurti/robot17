@@ -25,22 +25,23 @@ tf_buffer = tf2_ros.Buffer()
 empty_counter = 0 # counter for the consecutive empty markers subscription
 searchturn = "right"
 lastcoords = [None]*3 # lastcoords[x,y,z] for action history
-ls = 0.2 # LINEAR SPEED
+ls = 0.3 # LINEAR SPEED
 issafe = True #Inital safery state
 counter = 0 # Counter for scout mode
 multiplier = 0.5 ### Poportional steering coefficient
 rs = 4 ## Retreat speed in danger
-historysize = 2 ## amount of actions that get cached in case of a missed marker
-sp = 0.5 ## scout angular speed
+historysize = 3 ## amount of actions that get cached in case of a missed marker
+sp = 0.25 ## scout angular speed
 
 ## Actions ---------------------------------------------------------------------
 def move_forward(x):
-		if x > 0.2:
+	if issafe:
+		if x > 0.15:
 			print 'Adjust trajectory to the right! abs dist:',round(math.fabs(0-multiplier*x),2)
 			# print('modulo dist', math.fabs(0-0.2*x))
 			return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0,0,-math.fabs(0-multiplier*x))))
 
-		elif x < -0.1:
+		elif x < -0.05:
 			print 'Adjusting trajectory to the left! abs dist:',round(math.fabs(0-multiplier*x),2)
 			# print('modulo dist',math.fabs(0-0.2*x))
 			return vel.publish(Twist(Vector3(ls,ls,0), Vector3(0,0,math.fabs(0-multiplier*x))))
@@ -60,19 +61,17 @@ def spin(x):
 def stopnsearch(x): ## SCOUT MODE
 	global counter
 	global searchturn
-	if counter <= 4: #side == "right" and
+	if counter < 7: #side == "right" and
 		searchturn = "right"
 		print("Turning " + searchturn)
 		vel.publish(Twist(Vector3(0,0.0,0), Vector3(0,0,-sp)))
-		rospy.sleep(1)
 		counter += 1
 	else:
 		vel.publish(Twist(Vector3(0.0,0,0), Vector3(0,0,sp)))
 		searchturn = "left"
 		print("Turning " + searchturn)
-		rospy.sleep(1)
 		counter += 1
-		if counter == 10:
+		if counter == 11:
 			counter = 0
 
 def retreat(lz):
@@ -103,9 +102,8 @@ def handlebumps2(msg):
 			issafe = False
 			print("The robot hit something! Backing off and engaging scout mode!")
 			vel.publish(Twist(Vector3(-rs,-rs,0), Vector3(0,0,0)))
-			rospy.sleep(5)
+			rospy.sleep(1)
 			issafe = True
-			empty_counter = 3
 			return stopnsearch(None)
 
 
@@ -168,7 +166,7 @@ def handlemarkers(msg):
 		# y = round(marker.pose.pose.position.y * 1e308 *100,2)
 		# z = round(marker.pose.pose.position.z * 1e308 *1000000000,2)
 		# -----------------------------------------------------------
-		# print(marker.id, "x:", x, " y:", y, " z:", z, "angulo:",angulo_marcador_robo)  #maker_pose
+		print(marker.id, "x:", x, " y:", y, " z:", z, "angulo:",angulo_marcador_robo)  #maker_pose
 		lastcoords[0] = x
 		lastcoords[1] = y
 		lastcoords[2] = z
@@ -201,14 +199,14 @@ if __name__=="__main__":
 	rospy.init_node("jenny")
 	recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, handlemarkers)
 	# bumper = rospy.Subscriber("/mobile_base/events/bumper", BumperEvent, handlebumps)
-	neatobumper = rospy.Subscriber("/bump",Bump,handlebumps2)
-	vel = rospy.Publisher("cmd_vel", Twist, queue_size=1)
+	neatobumper = rospy.Subscriber("/bump",Bump,handlebumps2, queue_size=10)
+	vel = rospy.Publisher("cmd_vel", Twist, queue_size=10)
 	tfl = tf2_ros.TransformListener(tf_buffer)
 
 	try:
 		while not rospy.is_shutdown():
 			a = None
-			rospy.sleep(1)
+			rospy.sleep(0.01)
 
 	except rospy.ROSInterruptException:
 		print ('programa encerrado')
