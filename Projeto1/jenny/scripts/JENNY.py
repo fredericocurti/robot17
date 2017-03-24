@@ -16,6 +16,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 from kobuki_msgs.msg import BumperEvent
 from neato_node.msg import Bump
+from sensor_msgs.msg import LaserScan
 
 # os.system('roslaunch tag_tracking ar_track_neato.launch') # opens camera tracking
 id = 0
@@ -25,13 +26,17 @@ tf_buffer = tf2_ros.Buffer()
 empty_counter = 0 # counter for the consecutive empty markers subscription
 searchturn = "right"
 lastcoords = [None]*3 # lastcoords[x,y,z] for action history
-ls = 0.3 # LINEAR SPEED
+ls = 0.2 # LINEAR SPEED
 issafe = True #Inital safery state
-counter = 0 # Counter for scout mode
+counter = 1 # Counter for scout mode
 multiplier = 0.5 ### Poportional steering coefficient
 rs = 4 ## Retreat speed in danger
-historysize = 3 ## amount of actions that get cached in case of a missed marker
-sp = 0.25 ## scout angular speed
+historysize = 4 ## amount of actions that get cached in case of a missed marker
+sp = 0.5#0.4 #0.75 ## scout angular speed
+distmin = 0.1
+distmax = 0.2
+retreatqueue = 0
+
 
 ## Actions ---------------------------------------------------------------------
 def move_forward(x):
@@ -61,17 +66,16 @@ def spin(x):
 def stopnsearch(x): ## SCOUT MODE
 	global counter
 	global searchturn
-	if counter < 7: #side == "right" and
+
+	if counter <= 5: #side == "right" and
 		searchturn = "right"
-		print("Turning " + searchturn)
 		vel.publish(Twist(Vector3(0,0.0,0), Vector3(0,0,-sp)))
 		counter += 1
-	else:
+	elif counter >= 5 and counter <= 12:
 		vel.publish(Twist(Vector3(0.0,0,0), Vector3(0,0,sp)))
 		searchturn = "left"
-		print("Turning " + searchturn)
-		counter += 1
-		if counter == 11:
+		counter +=1
+		if counter == 12:
 			counter = 0
 
 def retreat(lz):
@@ -106,6 +110,40 @@ def handlebumps2(msg):
 			issafe = True
 			return stopnsearch(None)
 
+# def handlelaser(msg):
+# 	closelist = []
+# 	print(msg.ranges)
+# 	rospy.sleep(1)
+
+def handlelaser(msg):
+	global issafe
+	global distmin
+	global distmax
+	global retreatqueue
+	degrees = []
+	rangelist = list(msg.ranges)
+	backlist = []
+	frontlist = []
+	# print rangelist[340:]
+	# print rangelist[:20]
+
+	for dist in rangelist[120:240]:
+		if dist < 0.4 and dist != 0 and retreatqueue <= 8:
+			issafe = False
+			print 'The robot is too close to something! Attempting to evade'
+			rl = rangelist[120:240].index(dist)
+		#	retreatqueue += 1
+			absd = math.fabs(60-rl)
+			if rl < 60:
+				vel.publish(Twist(Vector3(ls,ls,0),Vector3(0,0,-(absd/25 * ls))))
+		#		retreatqueue -= 1
+				issafe=True
+			else:
+				vel.publish(Twist(Vector3(ls,ls,0),Vector3(0,0,absd/25 * ls)))
+		#		retreatqueue -=1
+				issafe=True
+		else:
+			issafe = True
 
 def handlemarkers(msg):
 	global empty_counter
@@ -141,9 +179,10 @@ def handlemarkers(msg):
 		id = marker.id
 		marcador = "ar_marker_" + str(id)
 		header = Header(frame_id=marcador)
+
 		try:
 			trans = tf_buffer.lookup_transform(frame, marcador, rospy.Time(0))
-		except LookupException:
+		except BaseException:
 			pass
 
 		x = round(trans.transform.translation.x,2)
@@ -170,6 +209,7 @@ def handlemarkers(msg):
 		lastcoords[0] = x
 		lastcoords[1] = y
 		lastcoords[2] = z
+		counter = 0
 		print '\n'
 
 		# Dealing with marker inputs -------------------------------------------
@@ -199,14 +239,15 @@ if __name__=="__main__":
 	rospy.init_node("jenny")
 	recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, handlemarkers)
 	# bumper = rospy.Subscriber("/mobile_base/events/bumper", BumperEvent, handlebumps)
-	neatobumper = rospy.Subscriber("/bump",Bump,handlebumps2, queue_size=10)
-	vel = rospy.Publisher("cmd_vel", Twist, queue_size=10)
+	neatobumper = rospy.Subscriber("/bump",Bump,handlebumps2, queue_size=2)
+	laserscan = rospy.Subscriber("/scan",LaserScan,handlelaser,queue_size=2)
+	vel = rospy.Publisher("cmd_vel", Twist, queue_size=2)
 	tfl = tf2_ros.TransformListener(tf_buffer)
 
 	try:
 		while not rospy.is_shutdown():
 			a = None
-			rospy.sleep(0.01)
+			rospy.sleep(0.5)
 
 	except rospy.ROSInterruptException:
 		print ('programa encerrado')
