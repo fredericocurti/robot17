@@ -1,10 +1,10 @@
-# RobÙ Neato com comportamentos Alvar
+# Rob√¥ Neato com comportamentos Alvar
 ### Frederico Curti
 ### Elisa Malzoni
 ### Eduardo Tirta
-*[VÌdeo RobÙ](https://youtu.be/8dcdnpl31bI)*
+*[V√≠deo Rob√¥](https://youtu.be/8dcdnpl31bI)*
 
-######O vÌdeo mostra as tarefas que o robÙ realiza ao encontrar um marcador, 
-s„o configurados 3 marcadores e alÈm deles, o robÙ tem um comportamento 
-de seguranÁa, que s„o mais fundamentais que os marcadores, assim, evita 
-problemas de colisıes, e caso possua uma colis„o, ele se afasta.
+###### O v√≠deo mostra as tarefas que o rob√¥ realiza ao encontrar um marcador, 
+###### s√£o configurados 3 marcadores e al√©m deles, o rob√¥ tem um comportamento 
+###### de seguran√ßa, que s√£o mais fundamentais que os marcadores, assim, evita 
+###### problemas de colis√µes, e caso possua uma colis√£o, ele se afasta.
