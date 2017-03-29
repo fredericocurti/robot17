@@ -1,4 +1,4 @@
-# Robô Neato com comportamentos Alvar
+# Robô Jenny com comportamentos Alvar
 ### Frederico Curti
 ### Elisa Malzoni
 ### Eduardo Tirta
